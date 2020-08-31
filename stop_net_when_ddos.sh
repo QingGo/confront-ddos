@@ -11,8 +11,8 @@ do
     sleep 1
     RX_next=$(cat /proc/net/dev | grep $1 | sed 's/:/ /g' | awk '{print $2}')
     RX=$((${RX_next}-${RX_pre}))
-    # 入流量大于5Mbit，断网5min
-    if [[ $RX -gt 655360 ]];then
+    # 入流量大于4.5Mbit/s，断网5min
+    if [[ $RX -gt 589824 ]];then
         echo "stop network interface $1 at `date`"
         ifconfig $1 down
         sleep 300
