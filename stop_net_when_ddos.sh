@@ -5,26 +5,36 @@
 # sudo su
 # nohup ./stop_net_when_ddos.sh eth0 > stop_net_when_ddos.log 2>&1 &
 
+break_count=0
 while true
 do
-    RX_pre=$(cat /proc/net/dev | grep $1 | sed 's/:/ /g' | awk '{print $2}')
+    receive_bytes_pre=$(cat /proc/net/dev | grep $1 | sed 's/:/ /g' | awk '{print $2}')
+    receive_packets_pre=$(cat /proc/net/dev | grep $1 | sed 's/:/ /g' | awk '{print $3}')
+    send_bytes_pre=$(cat /proc/net/dev | grep $1 | sed 's/:/ /g' | awk '{print $10}')
+    send_packets_pre=$(cat /proc/net/dev | grep $1 | sed 's/:/ /g' | awk '{print $11}')
     sleep 1
-    RX_next=$(cat /proc/net/dev | grep $1 | sed 's/:/ /g' | awk '{print $2}')
-    RX=$((${RX_next}-${RX_pre}))
-    # 入流量大于4.5Mbit/s，断网5min
-    if [[ $RX -gt 589824 ]];then
-        echo "stop network interface $1 at `date`"
-        ifconfig $1 down
-        sleep 300
-        echo "start network interface $1 at `date`"
-        ifconfig $1 up
+    receive_bytes_next=$(cat /proc/net/dev | grep $1 | sed 's/:/ /g' | awk '{print $2}')
+    receive_packets_next=$(cat /proc/net/dev | grep $1 | sed 's/:/ /g' | awk '{print $3}')
+    send_bytes_next=$(cat /proc/net/dev | grep $1 | sed 's/:/ /g' | awk '{print $10}')
+    send_packets_next=$(cat /proc/net/dev | grep $1 | sed 's/:/ /g' | awk '{print $11}')
+    receive_bytes=$((${receive_bytes_next}-${receive_bytes_pre}))
+    receive_packets=$((${receive_packets_next}-${receive_packets_pre}))
+    send_bytes=$((${send_bytes_next}-${send_bytes_pre}))
+    send_packets=$((${send_packets_next}-${send_packets_pre}))
+    # 入流量连续5次大于8Mbit/s，断网5min
+    echo "`date`|break_count:$break_count,receive_bytes:$receive_bytes,receive_packets:$receive_packets,send_bytes:$send_bytes,send_packets:$send_packets"
+    if [[ $RX -gt 1048576 ]];then
+        break_count+=1
+        # echo "`date`|break_count:$break_count,receive_bytes:$receive_bytes,receive_packets:$receive_packets,send_bytes:$send_bytes,send_packets:$send_packets"
+        if [[ $break_count -ge 5 ]];then
+            echo "stop network interface $1 at `date`"
+            ifconfig $1 down
+            sleep 300
+            echo "start network interface $1 at `date`"
+            ifconfig $1 up
+            break_count=0
+        fi
+    else
+        break_count=0
     fi
-    # if [[ $RX -lt 1024 ]];then
-    # RX="${RX}B/s"
-    # elif [[ $RX -gt 1048576 ]];then
-    # RX=$(echo $RX | awk '{print $1/1048576 "MB/s"}')
-    # else
-    # RX=$(echo $RX | awk '{print $1/1024 "KB/s"}')
-    # fi
-    # echo -e "$ethn \t $RX"
 done
